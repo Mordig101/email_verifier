@@ -1,0 +1,9 @@
+Email,Provider,Reason,Details
+mohamed.izri@tateandlyle.com,Custom,Custom domain with unknown login page,"{'mx_records': ['mx1.hc2326-43.iphmx.com', 'mx2.hc2326-43.iphmx.com']}"
+abdel.elkhaouda@schomburg.ma,Custom,Custom domain with unknown login page,"{'mx_records': ['mailin2.louis.info', 'mailin1.louis.info']}"
+a.jabiri@ona.co.ma,Custom,Custom domain with unknown login page,"{'mx_records': ['tensift.wanadoo.net.ma', 'smtplotus.ona.co.ma', 'smtplotus3.ona.co.ma', 'smtplotus2.ona.co.ma']}"
+a.elkhamkhami@veoliaservices.ma,Custom,Custom domain with unknown login page,{'mx_records': ['mailb.iptwins.com']}
+abdel.elkhaouda@schomburg.ma,Custom,Custom domain with unknown login page,"{'mx_records': ['mailin1.louis.info', 'mailin2.louis.info']}"
+a.jabiri@ona.co.ma,Custom,Custom domain with unknown login page,"{'mx_records': ['smtplotus2.ona.co.ma', 'smtplotus3.ona.co.ma', 'smtplotus.ona.co.ma', 'tensift.wanadoo.net.ma']}"
+a.elkhamkhami@veoliaservices.ma,Custom,Custom domain with unknown login page,{'mx_records': ['mailb.iptwins.com']}
+unimagec@menara.ma,menara.ma,Could not find email input field on login page,{'current_url': 'https://webmail.menara.ma/mtowaauth/'}
