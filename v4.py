@@ -679,7 +679,7 @@ class EnterpriseEmailValidator:
                         result.score -= 0.3
         
         # Ensure score is between 0 and 1
-        result.score = max(0.0, min(1.0, result.score))
+                    result.score -= 0.3
         
         # Ensure score is between 0 and 1
         result.score = max(0.0, min(1.0, result.score))

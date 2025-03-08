@@ -62,10 +62,10 @@ class ImprovedLoginVerifier:
         # Known email providers and their login URLs
         self.provider_login_urls = {
             # Major providers
-            'gmail.com': 'https://accounts.google.com/v3/signin/identifier?checkedDomains=youtube&continue=https%3A%2F%2Faccounts.google.com%2F&ddm=1&flowEntry=ServiceLogin&flowName=GlifWebSignIn&followup=https%3A%2F%2Faccounts.google.com%2F&ifkv=ASSHykqZwmsZ-Y8kMUy1FaZIF_roUjdswunM1zU1MHwMol0ScsWw6Ccfrnl6CF5AGNdJYnPIXWCAag&pstMsg=1&dsh=S-618504277%3A1741397881564214',
+            'gmail.com': 'https://accounts.google.com/v3/signin/identifier?flowName=GlifWebSignIn',
             'googlemail.com': 'https://accounts.google.com/v3/signin/identifier?flowName=GlifWebSignIn',
-            'outlook.com': 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?scope=service%3A%3Aaccount.microsoft.com%3A%3AMBI_SSL+openid+profile+offline_access&response_type=code&client_id=81feaced-5ddd-41e7-8bef-3e20a2689bb7&redirect_uri=https%3A%2F%2Faccount.microsoft.com%2Fauth%2Fcomplete-signin-oauth&client-request-id=91a4ca34-664d-4f85-b023-b815182d057e&x-client-SKU=MSAL.Desktop&x-client-Ver=4.66.1.0&x-client-OS=Windows+Server+2019+Datacenter&prompt=login&client_info=1&state=H4sIAAAAAAAEAA3OR4KCMAAAwL945QBoKB48gAhGTUKVcpOyUgIIIlnz-t15wWxOkdgndzKKgzSP0sPvj6ylebkaJnlzK-s0zslzEDxJW0UhHvEoa8gondYS2LTTFj8N67QGK0Xnl7SoUWRXezriNbboRIRAH11HDqhyTBouvKsZMdgD_EwXpH2sZhExKJfvafuKxXbvtGmo4JABCBsFdIXfz1A5ReoS5TaufobXzFD27PSPwvn1JjnTMNvUIxAhZIvJMrxonWBPzz_q-cwoGpZMT_dt0HJwoQjGbICKmRvY9fjN_a9X83yN15D0QONFuUsucuoQrfbvd--XVEViWqUbRJXAOukcyRNmjUoyrhYWNEAvdQbMsp2XArl4F9vEzh95s3fGb2Q-Hs2VHQ6bP6JJZGZaAQAA&msaoauth2=true&lc=1036&sso_reload=true',
-            'hotmail.com': 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?scope=service%3A%3Aaccount.microsoft.com%3A%3AMBI_SSL+openid+profile+offline_access&response_type=code&client_id=81feaced-5ddd-41e7-8bef-3e20a2689bb7&redirect_uri=https%3A%2F%2Faccount.microsoft.com%2Fauth%2Fcomplete-signin-oauth&client-request-id=91a4ca34-664d-4f85-b023-b815182d057e&x-client-SKU=MSAL.Desktop&x-client-Ver=4.66.1.0&x-client-OS=Windows+Server+2019+Datacenter&prompt=login&client_info=1&state=H4sIAAAAAAAEAA3OR4KCMAAAwL945QBoKB48gAhGTUKVcpOyUgIIIlnz-t15wWxOkdgndzKKgzSP0sPvj6ylebkaJnlzK-s0zslzEDxJW0UhHvEoa8gondYS2LTTFj8N67QGK0Xnl7SoUWRXezriNbboRIRAH11HDqhyTBouvKsZMdgD_EwXpH2sZhExKJfvafuKxXbvtGmo4JABCBsFdIXfz1A5ReoS5TaufobXzFD27PSPwvn1JjnTMNvUIxAhZIvJMrxonWBPzz_q-cwoGpZMT_dt0HJwoQjGbICKmRvY9fjN_a9X83yN15D0QONFuUsucuoQrfbvd--XVEViWqUbRJXAOukcyRNmjUoyrhYWNEAvdQbMsp2XArl4F9vEzh95s3fGb2Q-Hs2VHQ6bP6JJZGZaAQAA&msaoauth2=true&lc=1036&sso_reload=true',
+            'outlook.com': 'https://login.live.com',
+            'hotmail.com': 'https://login.live.com',
             'live.com': 'https://login.live.com',
             'yahoo.com': 'https://login.yahoo.com',
             'aol.com': 'https://login.aol.com',
@@ -96,8 +96,7 @@ class ImprovedLoginVerifier:
                 "we couldn't find an account with that username",
                 "that microsoft account doesn't exist",
                 "no account found",
-                "this username may be incorrect",
-                "ce nom d'utilisateur est peut-être incorrect"
+                "this username may be incorrect"
             ],
             # Yahoo
             'yahoo.com': [
@@ -115,22 +114,6 @@ class ImprovedLoginVerifier:
                 "invalid email",
                 "email address is incorrect"
             ]
-        }
-        
-        # Provider-specific page changes that indicate valid emails
-        self.valid_email_indicators = {
-            'gmail.com': {
-                'heading_changes': {
-                    'before': ['Sign in'],
-                    'after': ['Welcome']
-                }
-            },
-            'outlook.com': {
-                'heading_changes': {
-                    'before': ['Sign in', 'Se connecter'],
-                    'after': ['Enter password', 'Entrez le mot de passe']
-                }
-            }
         }
         
         # Next button text in different languages
@@ -281,22 +264,22 @@ class ImprovedLoginVerifier:
             try:
                 # Try exact text match
                 elements = driver.find_elements(By.XPATH, f"//button[contains(text(), '{text}')]")
-                if elements:
+                if elements and elements[0].is_displayed() and elements[0].is_enabled():
                     return elements[0]
                 
                 # Try case-insensitive match
                 elements = driver.find_elements(By.XPATH, f"//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{text.lower()}')]")
-                if elements:
+                if elements and elements[0].is_displayed() and elements[0].is_enabled():
                     return elements[0]
                 
                 # Try with span inside button
                 elements = driver.find_elements(By.XPATH, f"//button//span[contains(text(), '{text}')]/..")
-                if elements:
+                if elements and elements[0].is_displayed() and elements[0].is_enabled():
                     return elements[0]
                 
                 # Try with input buttons
                 elements = driver.find_elements(By.XPATH, f"//input[@type='submit' and contains(@value, '{text}')]")
-                if elements:
+                if elements and elements[0].is_displayed() and elements[0].is_enabled():
                     return elements[0]
             except Exception:
                 continue
@@ -313,7 +296,7 @@ class ImprovedLoginVerifier:
         ]:
             try:
                 elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                if elements:
+                if elements and elements[0].is_displayed() and elements[0].is_enabled():
                     return elements[0]
             except Exception:
                 continue
@@ -323,7 +306,7 @@ class ImprovedLoginVerifier:
             # Look for buttons with common attributes
             for attr in ["submit", "login", "next", "continue", "signin"]:
                 elements = driver.find_elements(By.CSS_SELECTOR, f"button[id*='{attr}'], button[class*='{attr}'], button[name*='{attr}']")
-                if elements:
+                if elements and elements[0].is_displayed() and elements[0].is_enabled():
                     return elements[0]
             
             # Look for any button as a last resort
@@ -390,99 +373,91 @@ class ImprovedLoginVerifier:
             if phrase.lower() in page_source:
                 return True, phrase
         
-        # Check for specific error elements
-        try:
-            # Google error message
-            google_error = driver.find_elements(By.XPATH, "//div[contains(@class, 'Ekjuhf') or contains(@class, 'o6cuMc')]")
-            if google_error and any("couldn't find" in element.text.lower() for element in google_error if element.is_displayed()):
-                return True, "Google account not found"
-            
-            # Microsoft error message
-            microsoft_error = driver.find_elements(By.ID, "usernameError")
-            if microsoft_error and any(element.is_displayed() for element in microsoft_error):
-                return True, "Microsoft account not found"
-        except Exception:
-            pass
-        
         return False, None
 
-    def get_page_heading(self, driver):
-        """Get the main heading of the page."""
-        try:
-            # Try common heading elements
-            for selector in [
-                "h1#headingText", # Google
-                "div#loginHeader", # Microsoft
-                "h1", 
-                ".heading", 
-                "[role='heading']"
-            ]:
-                elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                for element in elements:
-                    if element.is_displayed() and element.text.strip():
-                        return element.text.strip()
-            
-            return None
-        except Exception:
-            return None
-
-    def check_for_password_field(self, driver, provider, before_heading=None):
+    def check_for_password_field(self, driver, provider):
         """
         Check if the page contains a visible password field, indicating the email exists.
-        This improved version checks for hidden password fields and page heading changes.
+        Returns True if a visible password field is found, False otherwise.
         """
-        # Check for heading changes that indicate a valid email
-        if provider in self.valid_email_indicators and before_heading:
-            after_heading = self.get_page_heading(driver)
-            if after_heading:
-                # Check if heading changed from sign-in to password/welcome
-                if (before_heading.lower() in [h.lower() for h in self.valid_email_indicators[provider]['heading_changes']['before']] and
-                    after_heading.lower() in [h.lower() for h in self.valid_email_indicators[provider]['heading_changes']['after']]):
-                    return True, "Heading changed to password prompt"
-        
-        # Check for visible password fields
         try:
-            # Find all password fields
+            # Look for password input fields that are visible and not hidden
             password_fields = driver.find_elements(By.CSS_SELECTOR, "input[type='password']")
             
-            # Check if any password field is visible and not hidden
+            # Filter out hidden password fields
+            visible_password_fields = []
             for field in password_fields:
                 try:
-                    # Check if the field is displayed
-                    if not field.is_displayed():
-                        continue
-                    
-                    # Check for attributes that indicate a hidden field
-                    aria_hidden = field.get_attribute("aria-hidden")
-                    tabindex = field.get_attribute("tabindex")
-                    class_name = field.get_attribute("class")
-                    
-                    # Skip fields that are explicitly hidden
-                    if (aria_hidden == "true" or 
-                        tabindex == "-1" or 
-                        any(hidden_class in (class_name or "") for hidden_class in ["moveOffScreen", "Hvu6D", "hidden"])):
-                        continue
-                    
-                    # This is a visible password field
-                    return True, "Visible password field found"
-                except StaleElementReferenceException:
+                    # Check if the field is displayed and not hidden by attributes
+                    if (field.is_displayed() and 
+                        "hidden" not in field.get_attribute("class").lower() and
+                        field.get_attribute("aria-hidden") != "true" and
+                        field.get_attribute("tabindex") != "-1" and
+                        "moveOffScreen" not in field.get_attribute("class")):
+                        visible_password_fields.append(field)
+                except Exception:
                     continue
             
-            # Check for password-related labels or text that indicate a password prompt
+            if visible_password_fields:
+                return True
+            
+            # Provider-specific checks
+            if provider == 'gmail.com' or provider == 'googlemail.com':
+                # For Google, check if the heading changed to "Welcome"
+                welcome_headers = driver.find_elements(By.XPATH, "//h1[contains(., 'Welcome')]")
+                if welcome_headers and welcome_headers[0].is_displayed():
+                    return True
+                
+                # Check for specific password field class that appears after valid email
+                google_password_fields = driver.find_elements(By.CSS_SELECTOR, "input[name='Passwd']")
+                if google_password_fields and google_password_fields[0].is_displayed():
+                    return True
+            
+            elif provider in ['outlook.com', 'hotmail.com', 'live.com', 'microsoft.com', 'office365.com']:
+                # For Microsoft, check for the visible password field with specific classes
+                ms_password_fields = driver.find_elements(By.CSS_SELECTOR, "input[name='passwd'].form-control")
+                if ms_password_fields and ms_password_fields[0].is_displayed():
+                    return True
+            
+            # Look for password-related labels or text that would indicate we're on a password entry page
             password_labels = driver.find_elements(By.XPATH, "//label[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'password')]")
             if password_labels and any(label.is_displayed() for label in password_labels):
-                return True, "Password label found"
+                return True
             
-            # For Microsoft specifically, check for the password form
-            if provider in ['outlook.com', 'hotmail.com', 'live.com', 'microsoft.com', 'office365.com']:
-                password_form = driver.find_elements(By.CSS_SELECTOR, "form[name='f1'][data-testid='passwordForm']")
-                if password_form:
-                    return True, "Password form found"
+            # Check for "Enter your password" text
+            password_text = driver.find_elements(By.XPATH, "//*[contains(text(), 'Enter your password') or contains(text(), 'Entrer le mot de passe')]")
+            if password_text and any(text.is_displayed() for text in password_text):
+                return True
             
-            return False, None
+            return False
         except Exception as e:
             logger.error(f"Error checking for password field: {e}")
-            return False, None
+            return False
+
+    def capture_page_state(self, driver):
+        """Capture the current state of the page for debugging."""
+        try:
+            return {
+                "url": driver.current_url,
+                "title": driver.title,
+                "h1_text": [h1.text for h1 in driver.find_elements(By.TAG_NAME, "h1") if h1.is_displayed()],
+                "visible_inputs": [
+                    {
+                        "type": inp.get_attribute("type"),
+                        "name": inp.get_attribute("name"),
+                        "id": inp.get_attribute("id"),
+                        "class": inp.get_attribute("class"),
+                        "aria_hidden": inp.get_attribute("aria-hidden"),
+                        "tabindex": inp.get_attribute("tabindex"),
+                        "is_displayed": inp.is_displayed()
+                    }
+                    for inp in driver.find_elements(By.TAG_NAME, "input")
+                    if inp.is_displayed()
+                ]
+            }
+        except Exception as e:
+            logger.error(f"Error capturing page state: {e}")
+            return {"error": str(e)}
 
     def _verify_login(self, email: str, provider: str, login_url: str) -> EmailVerificationResult:
         """
@@ -499,8 +474,8 @@ class ImprovedLoginVerifier:
             # Wait for page to load
             time.sleep(3)
             
-            # Get the initial page heading
-            before_heading = self.get_page_heading(driver)
+            # Capture initial page state
+            initial_state = self.capture_page_state(driver)
             
             # Find email input field
             email_field = self.find_email_field(driver)
@@ -532,17 +507,14 @@ class ImprovedLoginVerifier:
                     details={"current_url": driver.current_url}
                 )
             
-            # Take a screenshot before clicking next (for debugging)
-            # driver.save_screenshot(f"before_{email.replace('@', '_at_')}.png")
-            
             # Click next button
             next_button.click()
             
             # Wait for response
             time.sleep(3)
             
-            # Take a screenshot after clicking next (for debugging)
-            # driver.save_screenshot(f"after_{email.replace('@', '_at_')}.png")
+            # Capture post-click page state
+            post_click_state = self.capture_page_state(driver)
             
             # Check if we were redirected to a custom domain login
             current_url = driver.current_url
@@ -557,30 +529,40 @@ class ImprovedLoginVerifier:
                     category=INVALID,
                     reason="Email address does not exist",
                     provider=provider,
-                    details={"error_phrase": error_phrase}
+                    details={
+                        "error_phrase": error_phrase,
+                        "initial_state": initial_state,
+                        "post_click_state": post_click_state
+                    }
                 )
             
-            # Check for password field or heading changes
-            has_password, password_reason = self.check_for_password_field(driver, provider, before_heading)
-            if has_password:
+            # Check for password field with provider-specific logic
+            if self.check_for_password_field(driver, provider):
                 return EmailVerificationResult(
                     email=email,
                     category=VALID,
-                    reason=f"Email address exists ({password_reason})",
-                    provider=provider
+                    reason="Email address exists (password prompt appeared)",
+                    provider=provider,
+                    details={
+                        "initial_state": initial_state,
+                        "post_click_state": post_click_state
+                    }
                 )
             
             # If we're redirected to a different domain, it might be a custom login
-            if original_domain != current_domain and "login" in current_url.lower():
+            if original_domain != current_domain:
                 # Try to find password field on the new page
-                has_password, password_reason = self.check_for_password_field(driver, provider, before_heading)
-                if has_password:
+                if self.check_for_password_field(driver, provider):
                     return EmailVerificationResult(
                         email=email,
                         category=VALID,
-                        reason=f"Email address exists ({password_reason} after redirect)",
+                        reason="Email address exists (redirected to password page)",
                         provider=provider,
-                        details={"redirect_url": current_url}
+                        details={
+                            "redirect_url": current_url,
+                            "initial_state": initial_state,
+                            "post_click_state": post_click_state
+                        }
                     )
                 
                 # If we can't determine, mark as custom
@@ -589,8 +571,29 @@ class ImprovedLoginVerifier:
                     category=CUSTOM,
                     reason="Redirected to custom login page",
                     provider=provider,
-                    details={"redirect_url": current_url}
+                    details={
+                        "redirect_url": current_url,
+                        "initial_state": initial_state,
+                        "post_click_state": post_click_state
+                    }
                 )
+            
+            # Check for changes in the page that might indicate success or failure
+            if provider == 'gmail.com' or provider == 'googlemail.com':
+                # For Google, check if we're still on the same page with no error
+                if "identifier" in current_url and not has_error:
+                    # We're still on the identifier page with no error - this is suspicious
+                    return EmailVerificationResult(
+                        email=email,
+                        category=RISKY,
+                        reason="No clear validation result from Google",
+                        provider=provider,
+                        details={
+                            "current_url": current_url,
+                            "initial_state": initial_state,
+                            "post_click_state": post_click_state
+                        }
+                    )
             
             # If we can't find a password field or error message, check if we're still on the same page
             if login_url.split('?')[0] in current_url.split('?')[0]:
@@ -601,19 +604,26 @@ class ImprovedLoginVerifier:
                     category=RISKY,
                     reason="Could not determine if email exists (no password prompt or error)",
                     provider=provider,
-                    details={"current_url": current_url}
+                    details={
+                        "current_url": current_url,
+                        "initial_state": initial_state,
+                        "post_click_state": post_click_state
+                    }
                 )
             else:
                 # We were redirected somewhere else
                 # Try one more time to check for password field
-                has_password, password_reason = self.check_for_password_field(driver, provider, before_heading)
-                if has_password:
+                if self.check_for_password_field(driver, provider):
                     return EmailVerificationResult(
                         email=email,
                         category=VALID,
-                        reason=f"Email address exists ({password_reason} after redirect)",
+                        reason="Email address exists (password prompt appeared after redirect)",
                         provider=provider,
-                        details={"redirect_url": current_url}
+                        details={
+                            "redirect_url": current_url,
+                            "initial_state": initial_state,
+                            "post_click_state": post_click_state
+                        }
                     )
                 
                 # If still no password field, mark as custom
@@ -622,7 +632,11 @@ class ImprovedLoginVerifier:
                     category=CUSTOM,
                     reason="Redirected to another page",
                     provider=provider,
-                    details={"redirect_url": current_url}
+                    details={
+                        "redirect_url": current_url,
+                        "initial_state": initial_state,
+                        "post_click_state": post_click_state
+                    }
                 )
         
         except WebDriverException as e:

@@ -35,7 +35,7 @@ class EmailVerificationResult:
     def __str__(self) -> str:
         return f"{self.email}: {self.category} ({self.provider}) - {self.reason}"
 
-class ImprovedLoginVerifier:
+class EnhancedLoginVerifier:
     def __init__(self, output_dir="./results"):
         # Create output directory if it doesn't exist
         self.output_dir = output_dir
@@ -62,10 +62,10 @@ class ImprovedLoginVerifier:
         # Known email providers and their login URLs
         self.provider_login_urls = {
             # Major providers
-            'gmail.com': 'https://accounts.google.com/v3/signin/identifier?checkedDomains=youtube&continue=https%3A%2F%2Faccounts.google.com%2F&ddm=1&flowEntry=ServiceLogin&flowName=GlifWebSignIn&followup=https%3A%2F%2Faccounts.google.com%2F&ifkv=ASSHykqZwmsZ-Y8kMUy1FaZIF_roUjdswunM1zU1MHwMol0ScsWw6Ccfrnl6CF5AGNdJYnPIXWCAag&pstMsg=1&dsh=S-618504277%3A1741397881564214',
+            'gmail.com': 'https://accounts.google.com/v3/signin/identifier?flowName=GlifWebSignIn',
             'googlemail.com': 'https://accounts.google.com/v3/signin/identifier?flowName=GlifWebSignIn',
-            'outlook.com': 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?scope=service%3A%3Aaccount.microsoft.com%3A%3AMBI_SSL+openid+profile+offline_access&response_type=code&client_id=81feaced-5ddd-41e7-8bef-3e20a2689bb7&redirect_uri=https%3A%2F%2Faccount.microsoft.com%2Fauth%2Fcomplete-signin-oauth&client-request-id=91a4ca34-664d-4f85-b023-b815182d057e&x-client-SKU=MSAL.Desktop&x-client-Ver=4.66.1.0&x-client-OS=Windows+Server+2019+Datacenter&prompt=login&client_info=1&state=H4sIAAAAAAAEAA3OR4KCMAAAwL945QBoKB48gAhGTUKVcpOyUgIIIlnz-t15wWxOkdgndzKKgzSP0sPvj6ylebkaJnlzK-s0zslzEDxJW0UhHvEoa8gondYS2LTTFj8N67QGK0Xnl7SoUWRXezriNbboRIRAH11HDqhyTBouvKsZMdgD_EwXpH2sZhExKJfvafuKxXbvtGmo4JABCBsFdIXfz1A5ReoS5TaufobXzFD27PSPwvn1JjnTMNvUIxAhZIvJMrxonWBPzz_q-cwoGpZMT_dt0HJwoQjGbICKmRvY9fjN_a9X83yN15D0QONFuUsucuoQrfbvd--XVEViWqUbRJXAOukcyRNmjUoyrhYWNEAvdQbMsp2XArl4F9vEzh95s3fGb2Q-Hs2VHQ6bP6JJZGZaAQAA&msaoauth2=true&lc=1036&sso_reload=true',
-            'hotmail.com': 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?scope=service%3A%3Aaccount.microsoft.com%3A%3AMBI_SSL+openid+profile+offline_access&response_type=code&client_id=81feaced-5ddd-41e7-8bef-3e20a2689bb7&redirect_uri=https%3A%2F%2Faccount.microsoft.com%2Fauth%2Fcomplete-signin-oauth&client-request-id=91a4ca34-664d-4f85-b023-b815182d057e&x-client-SKU=MSAL.Desktop&x-client-Ver=4.66.1.0&x-client-OS=Windows+Server+2019+Datacenter&prompt=login&client_info=1&state=H4sIAAAAAAAEAA3OR4KCMAAAwL945QBoKB48gAhGTUKVcpOyUgIIIlnz-t15wWxOkdgndzKKgzSP0sPvj6ylebkaJnlzK-s0zslzEDxJW0UhHvEoa8gondYS2LTTFj8N67QGK0Xnl7SoUWRXezriNbboRIRAH11HDqhyTBouvKsZMdgD_EwXpH2sZhExKJfvafuKxXbvtGmo4JABCBsFdIXfz1A5ReoS5TaufobXzFD27PSPwvn1JjnTMNvUIxAhZIvJMrxonWBPzz_q-cwoGpZMT_dt0HJwoQjGbICKmRvY9fjN_a9X83yN15D0QONFuUsucuoQrfbvd--XVEViWqUbRJXAOukcyRNmjUoyrhYWNEAvdQbMsp2XArl4F9vEzh95s3fGb2Q-Hs2VHQ6bP6JJZGZaAQAA&msaoauth2=true&lc=1036&sso_reload=true',
+            'outlook.com': 'https://login.live.com',
+            'hotmail.com': 'https://login.live.com',
             'live.com': 'https://login.live.com',
             'yahoo.com': 'https://login.yahoo.com',
             'aol.com': 'https://login.aol.com',
@@ -375,11 +375,39 @@ class ImprovedLoginVerifier:
         
         return None
 
+    def check_for_google_error(self, driver):
+        """
+        Specifically check for Google's error message indicating an invalid account.
+        Returns True if an error is found, False otherwise.
+        """
+        try:
+            # Check for the specific error div with class "Ekjuhf Jj6Lae"
+            error_divs = driver.find_elements(By.CSS_SELECTOR, "div.Ekjuhf.Jj6Lae")
+            if error_divs:
+                for div in error_divs:
+                    if "couldn't find your google account" in div.text.lower():
+                        return True, "Couldn't find your Google Account"
+            
+            # Also check for other error message containers
+            error_divs = driver.find_elements(By.CSS_SELECTOR, "div[aria-live='assertive']")
+            for div in error_divs:
+                if div.is_displayed() and "couldn't find" in div.text.lower():
+                    return True, div.text
+            
+            return False, None
+        except Exception as e:
+            logger.error(f"Error checking for Google error: {e}")
+            return False, None
+
     def check_for_error_message(self, driver, provider):
         """
         Check if the page contains an error message indicating the email doesn't exist.
         Returns True if an error is found, False otherwise.
         """
+        # For Google, use the specific Google error checker
+        if provider in ['gmail.com', 'googlemail.com']:
+            return self.check_for_google_error(driver)
+        
         page_source = driver.page_source.lower()
         
         # Get provider-specific error phrases
@@ -392,15 +420,11 @@ class ImprovedLoginVerifier:
         
         # Check for specific error elements
         try:
-            # Google error message
-            google_error = driver.find_elements(By.XPATH, "//div[contains(@class, 'Ekjuhf') or contains(@class, 'o6cuMc')]")
-            if google_error and any("couldn't find" in element.text.lower() for element in google_error if element.is_displayed()):
-                return True, "Google account not found"
-            
             # Microsoft error message
-            microsoft_error = driver.find_elements(By.ID, "usernameError")
-            if microsoft_error and any(element.is_displayed() for element in microsoft_error):
-                return True, "Microsoft account not found"
+            if provider in ['outlook.com', 'hotmail.com', 'live.com']:
+                microsoft_error = driver.find_elements(By.ID, "usernameError")
+                if microsoft_error and any(element.is_displayed() for element in microsoft_error):
+                    return True, "Microsoft account not found"
         except Exception:
             pass
         
@@ -426,19 +450,53 @@ class ImprovedLoginVerifier:
         except Exception:
             return None
 
+    def check_for_google_password_field(self, driver, before_heading=None):
+        """
+        Specifically check for Google's password field after login.
+        This handles the unique way Google shows password fields.
+        """
+        try:
+            # Check for heading change from "Sign in" to "Welcome"
+            after_heading = self.get_page_heading(driver)
+            if before_heading and after_heading:
+                if before_heading.lower() == "sign in" and after_heading.lower() == "welcome":
+                    return True, "Heading changed from 'Sign in' to 'Welcome'"
+            
+            # Check for the specific password input with class "whsOnd zHQkBf" and name "Passwd"
+            password_fields = driver.find_elements(By.CSS_SELECTOR, "input[type='password'][name='Passwd']")
+            for field in password_fields:
+                if field.is_displayed():
+                    return True, "Visible password field found"
+            
+            # Check for the password div container
+            password_container = driver.find_elements(By.CSS_SELECTOR, "div[jscontroller='JYtL0c']")
+            if password_container and any(container.is_displayed() for container in password_container):
+                return True, "Password container found"
+            
+            # Check for the "Show password" checkbox which appears on the password page
+            show_password = driver.find_elements(By.XPATH, "//div[contains(text(), 'Show password')]")
+            if show_password and any(element.is_displayed() for element in show_password):
+                return True, "Show password option found"
+            
+            # Check if the email field is now hidden and a password field is visible
+            email_field = driver.find_elements(By.CSS_SELECTOR, "input[type='email'][name='identifier'][aria-hidden='true']")
+            if email_field:
+                # If the email field is now hidden, it likely means we're on the password page
+                return True, "Email field is now hidden, likely on password page"
+            
+            return False, None
+        except Exception as e:
+            logger.error(f"Error checking for Google password field: {e}")
+            return False, None
+
     def check_for_password_field(self, driver, provider, before_heading=None):
         """
         Check if the page contains a visible password field, indicating the email exists.
         This improved version checks for hidden password fields and page heading changes.
         """
-        # Check for heading changes that indicate a valid email
-        if provider in self.valid_email_indicators and before_heading:
-            after_heading = self.get_page_heading(driver)
-            if after_heading:
-                # Check if heading changed from sign-in to password/welcome
-                if (before_heading.lower() in [h.lower() for h in self.valid_email_indicators[provider]['heading_changes']['before']] and
-                    after_heading.lower() in [h.lower() for h in self.valid_email_indicators[provider]['heading_changes']['after']]):
-                    return True, "Heading changed to password prompt"
+        # For Google, use the specific Google password checker
+        if provider in ['gmail.com', 'googlemail.com']:
+            return self.check_for_google_password_field(driver, before_heading)
         
         # Check for visible password fields
         try:
@@ -532,22 +590,14 @@ class ImprovedLoginVerifier:
                     details={"current_url": driver.current_url}
                 )
             
-            # Take a screenshot before clicking next (for debugging)
-            # driver.save_screenshot(f"before_{email.replace('@', '_at_')}.png")
-            
             # Click next button
             next_button.click()
             
-            # Wait for response
-            time.sleep(3)
-            
-            # Take a screenshot after clicking next (for debugging)
-            # driver.save_screenshot(f"after_{email.replace('@', '_at_')}.png")
-            
-            # Check if we were redirected to a custom domain login
-            current_url = driver.current_url
-            original_domain = login_url.split('/')[2]
-            current_domain = current_url.split('/')[2]
+            # Wait for response - longer wait for Google
+            if provider in ['gmail.com', 'googlemail.com']:
+                time.sleep(5)  # Google sometimes takes longer to respond
+            else:
+                time.sleep(3)
             
             # Check for error messages first
             has_error, error_phrase = self.check_for_error_message(driver, provider)
@@ -570,30 +620,33 @@ class ImprovedLoginVerifier:
                     provider=provider
                 )
             
-            # If we're redirected to a different domain, it might be a custom login
-            if original_domain != current_domain and "login" in current_url.lower():
-                # Try to find password field on the new page
-                has_password, password_reason = self.check_for_password_field(driver, provider, before_heading)
-                if has_password:
-                    return EmailVerificationResult(
-                        email=email,
-                        category=VALID,
-                        reason=f"Email address exists ({password_reason} after redirect)",
-                        provider=provider,
-                        details={"redirect_url": current_url}
-                    )
-                
-                # If we can't determine, mark as custom
-                return EmailVerificationResult(
-                    email=email,
-                    category=CUSTOM,
-                    reason="Redirected to custom login page",
-                    provider=provider,
-                    details={"redirect_url": current_url}
-                )
+            # Special handling for Google
+            if provider in ['gmail.com', 'googlemail.com']:
+                # Check if we're still on the same page with no error
+                # This could be a CAPTCHA or other verification step, which suggests the email exists
+                if "identifier" in driver.current_url and not has_error:
+                    # Look for CAPTCHA elements
+                    captcha_elements = driver.find_elements(By.ID, "captchaimg")
+                    if captcha_elements and any(element.is_displayed() for element in captcha_elements):
+                        return EmailVerificationResult(
+                            email=email,
+                            category=VALID,
+                            reason="Email likely exists (CAPTCHA challenge appeared)",
+                            provider=provider
+                        )
+                    
+                    # If we're redirected to a different Google page, it might be valid
+                    if "signin/v2/challenge" in driver.current_url or "signin/v2/identifier" in driver.current_url:
+                        return EmailVerificationResult(
+                            email=email,
+                            category=VALID,
+                            reason="Email likely exists (redirected to challenge page)",
+                            provider=provider,
+                            details={"redirect_url": driver.current_url}
+                        )
             
             # If we can't find a password field or error message, check if we're still on the same page
-            if login_url.split('?')[0] in current_url.split('?')[0]:
+            if login_url.split('?')[0] in driver.current_url.split('?')[0]:
                 # We're still on the login page, but no clear error message
                 # This is risky - might exist but we can't confirm
                 return EmailVerificationResult(
@@ -601,7 +654,7 @@ class ImprovedLoginVerifier:
                     category=RISKY,
                     reason="Could not determine if email exists (no password prompt or error)",
                     provider=provider,
-                    details={"current_url": current_url}
+                    details={"current_url": driver.current_url}
                 )
             else:
                 # We were redirected somewhere else
@@ -613,7 +666,7 @@ class ImprovedLoginVerifier:
                         category=VALID,
                         reason=f"Email address exists ({password_reason} after redirect)",
                         provider=provider,
-                        details={"redirect_url": current_url}
+                        details={"redirect_url": driver.current_url}
                     )
                 
                 # If still no password field, mark as custom
@@ -622,7 +675,7 @@ class ImprovedLoginVerifier:
                     category=CUSTOM,
                     reason="Redirected to another page",
                     provider=provider,
-                    details={"redirect_url": current_url}
+                    details={"redirect_url": driver.current_url}
                 )
         
         except WebDriverException as e:
@@ -681,9 +734,9 @@ class ImprovedLoginVerifier:
 
 # Example usage
 if __name__ == "__main__":
-    verifier = ImprovedLoginVerifier()
+    verifier = EnhancedLoginVerifier()
 
-    print("Improved Email Verification Tool")
+    print("Enhanced Email Verification Tool")
     print("===============================")
     print("1. Verify a single email")
     print("2. Verify multiple emails")
