@@ -79,8 +79,8 @@ def find_login_pages(mx_record: str, api_key: str, cx: str) -> list:
 # Example usage
 if __name__ == "__main__":
     # Replace with your Google API credentials
-    GOOGLE_API_KEY = "AIzaSyB-HW5M93C32osNEZwTuiwtTqQN5mspLko"
-    GOOGLE_CX = "c6d03b84830cd4478"
+    GOOGLE_API_KEY = "yours"
+    GOOGLE_CX = "yours"
     
     mx_record = "gmail-smtp-in.l.google.com"  # Replace with your MX record
     
