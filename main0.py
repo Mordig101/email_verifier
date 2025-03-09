@@ -59,6 +59,9 @@ class ImprovedLoginVerifier:
         # Cache for verification results
         self.result_cache: Dict[str, EmailVerificationResult] = {}
         
+        # Cache for catch-all domain results
+        self.catchall_domain_cache: Dict[str, bool] = {}
+        
         # Known email providers and their login URLs
         self.provider_login_urls = {
             # Major providers
@@ -81,6 +84,13 @@ class ImprovedLoginVerifier:
             'microsoft.com': 'https://login.microsoftonline.com',
             'office365.com': 'https://login.microsoftonline.com',
         }
+        
+        # Google provider domains
+        self.google_provider_domains = [
+            'gmail.com',
+            'googlemail.com',
+            # Add other Google provider domains if needed
+        ]
         
         # Error messages that indicate an email doesn't exist
         self.nonexistent_email_phrases = {
@@ -211,6 +221,81 @@ class ImprovedLoginVerifier:
         
         logger.info(f"Saved {result.email} to {result.category} list")
 
+    def is_google_catchall_domain(self, domain: str) -> bool:
+        """
+        Check if a Google domain is a catch-all domain by testing with a clearly invalid email.
+        Returns True if it's a catch-all domain, False otherwise.
+        """
+        # Check cache first
+        if domain in self.catchall_domain_cache:
+            return self.catchall_domain_cache[domain]
+        
+        # Skip standard gmail.com domain - it's not a catch-all
+        if domain == 'gmail.com':
+            self.catchall_domain_cache[domain] = False
+            return False
+        
+        # Generate a random string that's very unlikely to be a valid email
+        random_string = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=20))
+        test_email = f"{random_string}@{domain}"
+        
+        driver = None
+        try:
+            # Initialize the browser
+            driver = webdriver.Chrome(options=self.chrome_options)
+            
+            # Navigate to Google login page
+            driver.get(self.provider_login_urls['gmail.com'])
+            
+            # Wait for page to load
+            time.sleep(3)
+            
+            # Find email input field
+            email_field = self.find_email_field(driver)
+            if not email_field:
+                # If we can't find the email field, assume it's not a catch-all
+                self.catchall_domain_cache[domain] = False
+                return False
+            
+            # Enter the test email
+            email_field.clear()
+            email_field.send_keys(test_email)
+            
+            # Find and click next button
+            next_button = self.find_next_button(driver)
+            if not next_button:
+                # If we can't find the next button, assume it's not a catch-all
+                self.catchall_domain_cache[domain] = False
+                return False
+            
+            # Click next button
+            next_button.click()
+            
+            # Wait for response
+            time.sleep(3)
+            
+            # Check for error messages
+            has_error, _ = self.check_for_error_message(driver, 'gmail.com')
+            
+            # If there's no error message for a clearly invalid email, it's a catch-all domain
+            is_catchall = not has_error
+            
+            # Cache the result
+            self.catchall_domain_cache[domain] = is_catchall
+            
+            return is_catchall
+            
+        except Exception as e:
+            logger.error(f"Error checking if {domain} is a catch-all domain: {e}")
+            # In case of error, assume it's not a catch-all to be safe
+            self.catchall_domain_cache[domain] = False
+            return False
+            
+        finally:
+            # Close the browser
+            if driver:
+                driver.quit()
+
     def verify_email(self, email: str) -> EmailVerificationResult:
         """
         Verify if an email exists by checking MX records and attempting to log in.
@@ -249,7 +334,46 @@ class ImprovedLoginVerifier:
         # Step 3: Identify the provider
         provider, login_url = self.identify_provider(email)
         
-        # Step 4: For custom domains without a known login URL, mark as custom
+        # Step 4: Special handling for Google provider emails
+        if provider == 'gmail.com' or any(domain.endswith(f"@{google_domain}") for google_domain in self.google_provider_domains):
+            # Skip standard @gmail.com addresses
+            if domain == 'gmail.com':
+                result = EmailVerificationResult(
+                    email=email,
+                    category=CUSTOM,
+                    reason="Standard Gmail address - skipped as requested",
+                    provider=provider
+                )
+                self.result_cache[email] = result
+                self.save_result(result)
+                return result
+            
+            # Check if it's a Google catch-all domain
+            if self.is_google_catchall_domain(domain):
+                result = EmailVerificationResult(
+                    email=email,
+                    category=RISKY,
+                    reason="Google catch-all domain detected",
+                    provider=provider,
+                    details={"is_catchall": True}
+                )
+                self.result_cache[email] = result
+                self.save_result(result)
+                return result
+            else:
+                # Not a catch-all domain, consider it valid
+                result = EmailVerificationResult(
+                    email=email,
+                    category=VALID,
+                    reason="Google non-catch-all domain - email considered valid",
+                    provider=provider,
+                    details={"is_catchall": False}
+                )
+                self.result_cache[email] = result
+                self.save_result(result)
+                return result
+        
+        # Step 5: For custom domains without a known login URL, mark as custom
         if provider == 'custom' or not login_url:
             result = EmailVerificationResult(
                 email=email,
@@ -262,7 +386,7 @@ class ImprovedLoginVerifier:
             self.save_result(result)
             return result
         
-        # Step 5: Attempt login verification
+        # Step 6: Attempt login verification for non-Google providers
         result = self._verify_login(email, provider, login_url)
         
         # Save result to cache and CSV
@@ -392,24 +516,17 @@ class ImprovedLoginVerifier:
         
         # Check for specific error elements
         try:
-            # Google error message - more specific selector based on the HTML provided
-            google_error = driver.find_elements(By.CSS_SELECTOR, "div.Ekjuhf.Jj6Lae")
-            if google_error and any(element.is_displayed() for element in google_error):
-                for element in google_error:
-                    if "couldn't find your google account" in element.text.lower():
-                        return True, "Google account not found"
-            
-            # Additional check for Google error message with specific text
-            error_text_elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'find your Google Account') or contains(text(), 'find your account')]")
-            if error_text_elements and any(element.is_displayed() for element in error_text_elements):
+            # Google error message
+            google_error = driver.find_elements(By.XPATH, "//div[contains(@class, 'Ekjuhf') or contains(@class, 'o6cuMc')]")
+            if google_error and any("couldn't find" in element.text.lower() for element in google_error if element.is_displayed()):
                 return True, "Google account not found"
             
-            # Microsoft error message (keep existing code)
+            # Microsoft error message
             microsoft_error = driver.find_elements(By.ID, "usernameError")
             if microsoft_error and any(element.is_displayed() for element in microsoft_error):
                 return True, "Microsoft account not found"
-        except Exception as e:
-            logger.error(f"Error checking for error messages: {e}")
+        except Exception:
+            pass
         
         return False, None
 
@@ -446,31 +563,6 @@ class ImprovedLoginVerifier:
                 if (before_heading.lower() in [h.lower() for h in self.valid_email_indicators[provider]['heading_changes']['before']] and
                     after_heading.lower() in [h.lower() for h in self.valid_email_indicators[provider]['heading_changes']['after']]):
                     return True, "Heading changed to password prompt"
-        
-        # Google-specific password field check
-        if provider == 'gmail.com' or provider == 'googlemail.com':
-            try:
-                # Check for the specific Google password container that appears after valid email
-                google_password_container = driver.find_elements(By.CSS_SELECTOR, "div.H2p7Gf")
-                if google_password_container and any(container.is_displayed() for container in google_password_container):
-                    # Look for the password input inside this container
-                    for container in google_password_container:
-                        if container.is_displayed():
-                            password_inputs = container.find_elements(By.CSS_SELECTOR, "input[type='password']")
-                            if password_inputs and any(input_field.is_displayed() for input_field in password_inputs):
-                                return True, "Google password field found"
-                
-                # Check for the password div with specific class
-                google_password_div = driver.find_elements(By.CSS_SELECTOR, "div.rFrNMe.i79UJc.zKHdkd.sdJrJc")
-                if google_password_div and any(div.is_displayed() for div in google_password_div):
-                    return True, "Google password form found"
-                    
-                # Check if we're on the "Welcome" page which indicates valid email
-                welcome_heading = driver.find_elements(By.XPATH, "//h1[contains(text(), 'Welcome')]")
-                if welcome_heading and any(heading.is_displayed() for heading in welcome_heading):
-                    return True, "Google welcome page found"
-            except Exception as e:
-                logger.error(f"Error in Google-specific password check: {e}")
         
         # Check for visible password fields
         try:
@@ -575,54 +667,6 @@ class ImprovedLoginVerifier:
             
             # Take a screenshot after clicking next (for debugging)
             # driver.save_screenshot(f"after_{email.replace('@', '_at_')}.png")
-            
-            # Special handling for Google accounts
-            if provider == 'gmail.com' or provider == 'googlemail.com':
-                # Take a screenshot after clicking next (for debugging)
-                # driver.save_screenshot(f"after_google_{email.replace('@', '_at_')}.png")
-                
-                # Check for Google-specific error message first
-                try:
-                    google_error = driver.find_elements(By.CSS_SELECTOR, "span.AfGCob")
-                    if google_error and any(element.is_displayed() for element in google_error):
-                        for element in google_error:
-                            if element.is_displayed() and "couldn't find your google account" in element.text.lower():
-                                return EmailVerificationResult(
-                                    email=email,
-                                    category=INVALID,
-                                    reason="Email address does not exist (Google)",
-                                    provider=provider,
-                                    details={"error_message": element.text}
-                                )
-                except Exception as e:
-                    logger.error(f"Error checking for Google error: {e}")
-                
-                # Check for Google password field
-                try:
-                    # Look for visible password input that's not hidden
-                    password_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='password']")
-                    for input_field in password_inputs:
-                        if (input_field.is_displayed() and 
-                            input_field.get_attribute("tabindex") != "-1" and 
-                            "Hvu6D" not in (input_field.get_attribute("class") or "")):
-                            return EmailVerificationResult(
-                                email=email,
-                                category=VALID,
-                                reason="Email address exists (Google password prompt)",
-                                provider=provider
-                            )
-                    
-                    # Check for the specific Google password container
-                    google_password_container = driver.find_elements(By.CSS_SELECTOR, "div.H2p7Gf")
-                    if google_password_container and any(container.is_displayed() for container in google_password_container):
-                        return EmailVerificationResult(
-                            email=email,
-                            category=VALID,
-                            reason="Email address exists (Google password container)",
-                            provider=provider
-                        )
-                except Exception as e:
-                    logger.error(f"Error checking for Google password field: {e}")
             
             # Check if we were redirected to a custom domain login
             current_url = driver.current_url

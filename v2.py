@@ -38,11 +38,8 @@ class AdvancedEmailValidator:
         
         # Known major email providers that block SMTP verification
         self.major_providers = {
-            'gmail.com': 'Google',
             'yahoo.com': 'Yahoo',
-            'outlook.com': 'Microsoft',
-            'hotmail.com': 'Microsoft',
-            'live.com': 'Microsoft',
+            
             'msn.com': 'Microsoft',
             'aol.com': 'AOL',
             'icloud.com': 'Apple',
